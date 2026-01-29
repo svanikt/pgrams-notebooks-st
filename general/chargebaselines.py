@@ -1,12 +1,14 @@
 import marimo
 
-__generated_with = "0.14.17"
+__generated_with = "0.17.8"
 app = marimo.App(width="full")
 
 
 @app.cell
 def _(mo):
-    mo.md(r"""## November 2025 Integration Tests: Charge Baselines""")
+    mo.md(r"""
+    ## November 2025 Integration Tests: Charge Baselines
+    """)
     return
 
 
@@ -28,7 +30,7 @@ def _():
 
 
     # apply sexy Latex matplotlib style
-    plt.style.use('/home/pgrams/latex-cm.mplstyle')
+    plt.style.use('/home/svanik/latex-cm.mplstyle')
 
 
     # Add the location of the data utilities code to the system path
@@ -166,30 +168,6 @@ def _(curve_fit, decoder_bindings, find_peaks, np, pd, plt, readout_df):
 
         return readout_df, proc
 
-    def plot_charge_waveforms(readout_df, event, channel_range, timesize=255, overlay=False, range=[], create_fig=True, show_legend=True):
-
-        ch_down = channel_range[0]
-        ch_up = channel_range[1]
-
-        baseline_subtract = 2000
-        fig_height = 18 if (ch_up - ch_down) > 15 else 12
-        if ch_down == ch_up or overlay:
-            baseline_subtract = 0
-            fig_height = 8
-
-        if create_fig: plt.figure(figsize=(18,fig_height))
-        for i, qch in enumerate(readout_df['charge_adc_words'][event][ch_down:ch_up+1,:]):
-            baseline_shift = i * 2000 if not overlay else 0
-            plt.plot(np.linspace(-timesize/2, timesize, len(qch)), qch.astype(int) - baseline_subtract + baseline_shift, label=f'Channel {ch_down+i}')
-
-        xdown, xup = -int(timesize/2), timesize
-        plt.xticks(np.arange(-int(timesize/10)*10, int((timesize*2)/10)*10, 50))
-        plt.title("Event " + str(event))
-        plt.xlabel("[$\\mu$s]")
-        plt.ylabel("Charge [ADC]")
-        if show_legend: plt.legend(loc='best')
-        if ch_down == ch_up or overlay: plt.ylim(range)
-        if create_fig: plt.show()
 
 
     # modifying are_hits to also find negative pulses and the large dropout events 
@@ -265,28 +243,30 @@ def _(curve_fit, decoder_bindings, find_peaks, np, pd, plt, readout_df):
                                                           min_light_frame, 255, True)
 
         return full_axis, full_waveform
-    return are_hits, gaussian, plot_charge_waveforms
+    return are_hits, find_hits, gaussian
 
 
 @app.cell
 def _(mo):
-    mo.md(r"""## Load raw binary data""")
+    mo.md(r"""
+    ## Load raw binary data
+    """)
     return
 
 
 @app.cell
 def _(get_raw_data, np):
-
+    # /NAS/ColumbiaIntegration/
     num_files = 1
-    run_number = '715'
+    run_number = '796'
 
     files = []
     for i in np.arange(num_files):
-        files.append(f"/home/pgrams/data/jan13_integration/readout_data/pGRAMS_bin_{run_number}_{i}.dat")
+        files.append(f"/NAS/ColumbiaIntegration/readout_data/pGRAMS_bin_{run_number}_{i}.dat")
 
     use_charge_roi = False
     readout_df = get_raw_data.get_event_data(files=files, light_slot=16, use_charge_roi=use_charge_roi, channel_threshold=[2055]*192)
-    return num_files, readout_df, run_number
+    return num_files, readout_df
 
 
 @app.cell
@@ -297,67 +277,109 @@ def _(readout_df):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""## Preview Events""")
+    mo.md(r"""
+    ## Preview Events
+    """)
     return
 
 
 @app.cell
-def _(are_hits, plot_charge_waveforms, plt, readout_df):
+def _(np, plt):
+    def plot_charge_waveforms(event_df, channels, timesize=255, overlay=False, range=[], create_fig=True, show_legend=True):
+        """
+        Show the charge waveforms for an event as a heatmap.
+        :param event_df: pandas DataFrame Dataframe with the events
+        :param channel_range: tuple Contiguous charge channel range
+        :param timesize: int Readout window size in 2MHz ticks
+        :param overlay: bool Show each channel offset in y by ascending order
+        :param range: tuple Plot yaxis range
+        :param create_fig: bool Create the figure locally, if false use an existing figure object
+        :param show_legend: bool Show the plot legend
+        :return:
+        """
+        using_charge_roi = len(event_df['charge_adc_idx']) > 0
+
+        baseline_subtract = 2048
+        # fig_height = 18 if (ch_up - ch_down) > 15 else 12
+        # if ch_down == ch_up or overlay:
+        #     baseline_subtract = 0
+        #     fig_height = 8
+
+        if create_fig: plt.figure(figsize=(18, 4))
+        for i, qch in enumerate(event_df['charge_adc_words'][channels,:]):
+            baseline_shift = i * 2000 if not overlay else 0
+            if using_charge_roi:
+                xdown, xup = event_df['charge_adc_idx'][i][0], event_df['charge_adc_idx'][i][-1]+1
+                xaxis = 0.5 * (np.linspace(xdown, xup, len(qch)) - timesize) # 2Mhz ticks
+            else:
+                xaxis = np.linspace(-timesize / 2, timesize, len(qch)) # 2Mhz ticks
+            plt.plot(xaxis, qch.astype(int) - baseline_subtract + baseline_shift, label=f'Channel {channels[i]}')
+
+        plt.xlim(-timesize / 2, timesize)
+        # plt.xticks(np.arange(-int(timesize / 10) * 10, int((timesize * 2) / 10) * 10, 50))
+        plt.title("Event " + str(event_df['event_index']))
+        plt.xlabel("[$\\mu$s]")
+        plt.ylabel("Charge [ADC]")
+        if show_legend: plt.legend(loc='best')
+        # if ch_down == ch_up or overlay: plt.ylim(range)
+        if create_fig: plt.show()
+    return (plot_charge_waveforms,)
+
+
+@app.cell
+def _(are_hits, find_hits, plot_charge_waveforms, plt, readout_df):
     """
     Plotting of both the charge and light signals.
     """
     light_channel = 0
-    channel_range = [0,31]
-    # channel_range = [32,63]
-    # channel_range = [64,95]
-    # channel_range = [96,127]
-    # channel_range = [128, 159]
-    # channel_range = [160, 191]
-
-    select_hit_events = False
+    channel_range = [12,12]
+    select_hit_events = True
 
     for event in range(0,10):
-        if readout_df['charge_adc_words'][event].ndim < 2:
+
+        if are_hits(readout_df=readout_df, event=event):
+            # modified to EXCLUDE events that have hits (including baseline drop out)
+            # if are_hits(readout_df=readout_df, event=event) and select_hit_events:
+            hit_channels = find_hits(readout_df, event, height=1, prom=1)
+            if len(hit_channels)>0:
+                fig, ax1 = plt.subplots(figsize=(16,4))
+                plot_charge_waveforms(event_df=readout_df.iloc[event], channels=channel_range, timesize=255, overlay=True, range=[1800, 2100], create_fig=False, show_legend=True)
+
+
+                plt.xlabel("[$\\mu$s]")
+                # plt.axvline(-128, color='red', linestyle='--')
+                # plt.axvline(0, color='red', linestyle='--')
+                plt.axhline(0.61*(-15), color='red', linestyle='--')
+                plt.xlim(-10,20)
+                plt.minorticks_on()
+                from matplotlib.ticker import AutoMinorLocator
+                ax1.xaxis.set_minor_locator(AutoMinorLocator())
+                ax1.yaxis.set_minor_locator(AutoMinorLocator())
+                ax1.grid(True, which='major', linestyle='-', linewidth=0.8)
+                ax1.grid(True, which='minor', linestyle=':', linewidth=0.5, alpha=0.7)
+
+
+            
+
+                plt.show()
+        else:
             continue
-        # if not are_hits(readout_df=readout_df, event=event) and select_hit_events:
-        #     continue
-
-        # modified to EXCLUDE events that have hits (including baseline drop out)
-        if are_hits(readout_df=readout_df, event=event) and select_hit_events:
-            continue
-
-        fig, ax1 = plt.subplots(figsize=(16,4))
-        plot_charge_waveforms(readout_df=readout_df, event=event, channel_range=channel_range, timesize=255, overlay=True, range=[2000, 2100], create_fig=False, show_legend=False)
-
-        # ax1.set_ylim(2043, 2051)
-
-        ax2 = ax1.twinx()
-        # ax2.plot(full_axis/1e3, full_waveform-0, color='red', linestyle='--')
-        ax2.set_ylim(2000, 2500)
-        ax2.set_ylabel('Light [ADC]')
-
-        plt.xlabel("[$\\mu$s]")
-        # plt.axvline(-128, color='red', linestyle='--')
-        # plt.axvline(0, color='red', linestyle='--')
-        plt.xlim(-130,260)
-        plt.minorticks_on()
-        plt.show()
     return channel_range, select_hit_events
 
 
 @app.cell
-def _(are_hits, channel_range, np, readout_df, select_hit_events):
-    counts = {ch: [] for ch in range(channel_range[0], channel_range[1])}
-    for evt in range(0,len(readout_df)):
-        if readout_df['charge_adc_words'][evt].ndim < 2:
-            continue
-        # modified to EXCLUDE events that have hits (including drop out events)
-        if are_hits(readout_df=readout_df, event=evt) and select_hit_events:
-            continue
+def _():
+    # counts = {ch: [] for ch in range(channel_range[0], channel_range[1])}
+    # for evt in range(0,5000):
+    #     if readout_df['charge_adc_words'][evt].ndim < 2:
+    #         continue
+    #     # modified to EXCLUDE events that have hits (including drop out events)
+    #     if are_hits(readout_df=readout_df, event=evt) and select_hit_events:
+    #         continue
 
-        for ch in np.arange(channel_range[0],channel_range[1]):
-            counts[ch].append(readout_df['charge_adc_words'][evt][ch,0:125])
-    return (counts,)
+    #     for ch in np.arange(channel_range[0],channel_range[1]):
+    #         counts[ch].append(readout_df['charge_adc_words'][evt][ch,0:125])
+    return
 
 
 @app.cell
@@ -452,10 +474,14 @@ def _(colors, curve_fit, file_list, gaussian, np, pd, plt, savedir):
 
 @app.cell
 def _(counts, noise_hist, np, plt):
-    # baselines, rms= noise_hist(counts, channels=np.arange(32,62), range=100, num_bins=100, subplot=6)
     baselines, rms= noise_hist(counts, channels=np.arange(0,30), range=100, num_bins=100, subplot=6)
     plt.show()
     return baselines, rms
+
+
+@app.cell
+def _():
+    return
 
 
 @app.cell
@@ -485,13 +511,13 @@ def _(baselines, colors, plt):
 
 
 @app.cell
-def _(channels, colors, neu_channels, np, plt, rms, run_number):
+def _(channels, colors, neu_channels, plt, rms):
     noise_rms = [rms[ch] for ch in channels]
 
     _fig, _ax = plt.subplots(figsize=(10, 5))
     _ax.bar(channels, noise_rms, color=colors[2], alpha=0.4)
     _ax.set_xlabel('CU ADC Channel', fontsize=14)
-    _ax.set_ylabel('Standard Deviation (ADC Counts)', fontsize=14)
+    _ax.set_ylabel('Noise RMS (ADC Counts)', fontsize=14)
     _ax.set_xticks(channels)
     _ax.set_xticklabels([str(ch) for ch in channels], rotation=90, fontsize=10)
 
@@ -501,7 +527,6 @@ def _(channels, colors, neu_channels, np, plt, rms, run_number):
     _ax2.set_xticks(channels)
     _ax2.set_xticklabels([str(ch) for ch in neu_channels], rotation=90, fontsize=10)
     _ax2.set_xlabel('NEU TPC Channel', fontsize=14)
-    _ax2.text(channels[-1]-6, np.max(noise_rms) - (np.ptp(noise_rms)*0.05), f'R{run_number}: Q1 Bottom Connector')
     plt.tight_layout()
     plt.show()
     return (noise_rms,)
