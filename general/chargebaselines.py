@@ -1,13 +1,13 @@
 import marimo
 
-__generated_with = "0.17.8"
+__generated_with = "0.19.6"
 app = marimo.App(width="full")
 
 
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## November 2025 Integration Tests: Charge Baselines
+    ## Charge Baselines
     """)
     return
 
@@ -27,10 +27,11 @@ def _():
     from scipy.signal import find_peaks
     from scipy.optimize import curve_fit
     colors = sns.color_palette('colorblind')
+    sns.set_theme()
 
 
     # apply sexy Latex matplotlib style
-    plt.style.use('/home/svanik/latex-cm.mplstyle')
+    # plt.style.use('/home/pgrams/latex-cm.mplstyle')
 
 
     # Add the location of the data utilities code to the system path
@@ -38,7 +39,7 @@ def _():
     # or you could end up using the wrong code.
 
     # The root directory for the utility code is up 2 directories from the notebook
-    abs_repo_path = os.path.abspath('../../')
+    abs_repo_path = os.path.abspath('/home/pgrams/tpc_data/software/PGramsRawData/')
     # Insert the path to the front of sys.path if it is not already there
     if not abs_repo_path in sys.path:
         sys.path.insert(0, abs_repo_path)
@@ -258,7 +259,7 @@ def _(mo):
 def _(get_raw_data, np):
     # /NAS/ColumbiaIntegration/
     num_files = 1
-    run_number = '796'
+    run_number = '818'
 
     files = []
     for i in np.arange(num_files):
@@ -271,7 +272,7 @@ def _(get_raw_data, np):
 
 @app.cell
 def _(readout_df):
-    readout_df.tail(10)
+    readout_df.tail(1)
     return
 
 
@@ -327,12 +328,12 @@ def _(np, plt):
 
 
 @app.cell
-def _(are_hits, find_hits, plot_charge_waveforms, plt, readout_df):
+def _(are_hits, find_hits, np, plot_charge_waveforms, plt, readout_df):
     """
     Plotting of both the charge and light signals.
     """
     light_channel = 0
-    channel_range = [12,12]
+    channel_range = [0,30]
     select_hit_events = True
 
     for event in range(0,10):
@@ -343,14 +344,14 @@ def _(are_hits, find_hits, plot_charge_waveforms, plt, readout_df):
             hit_channels = find_hits(readout_df, event, height=1, prom=1)
             if len(hit_channels)>0:
                 fig, ax1 = plt.subplots(figsize=(16,4))
-                plot_charge_waveforms(event_df=readout_df.iloc[event], channels=channel_range, timesize=255, overlay=True, range=[1800, 2100], create_fig=False, show_legend=True)
+                plot_charge_waveforms(event_df=readout_df.iloc[event], channels=np.arange(channel_range[0], channel_range[1]), timesize=255, overlay=True, range=[1800, 2100], create_fig=False, show_legend=False)
 
 
                 plt.xlabel("[$\\mu$s]")
                 # plt.axvline(-128, color='red', linestyle='--')
                 # plt.axvline(0, color='red', linestyle='--')
                 plt.axhline(0.61*(-15), color='red', linestyle='--')
-                plt.xlim(-10,20)
+                # plt.xlim(-10,20)
                 plt.minorticks_on()
                 from matplotlib.ticker import AutoMinorLocator
                 ax1.xaxis.set_minor_locator(AutoMinorLocator())
@@ -359,7 +360,7 @@ def _(are_hits, find_hits, plot_charge_waveforms, plt, readout_df):
                 ax1.grid(True, which='minor', linestyle=':', linewidth=0.5, alpha=0.7)
 
 
-            
+
 
                 plt.show()
         else:
@@ -368,18 +369,17 @@ def _(are_hits, find_hits, plot_charge_waveforms, plt, readout_df):
 
 
 @app.cell
-def _():
-    # counts = {ch: [] for ch in range(channel_range[0], channel_range[1])}
-    # for evt in range(0,5000):
-    #     if readout_df['charge_adc_words'][evt].ndim < 2:
-    #         continue
-    #     # modified to EXCLUDE events that have hits (including drop out events)
-    #     if are_hits(readout_df=readout_df, event=evt) and select_hit_events:
-    #         continue
-
-    #     for ch in np.arange(channel_range[0],channel_range[1]):
-    #         counts[ch].append(readout_df['charge_adc_words'][evt][ch,0:125])
-    return
+def _(are_hits, channel_range, np, readout_df, select_hit_events):
+    counts = {ch: [] for ch in range(channel_range[0], channel_range[1])}
+    for evt in range(0,len(readout_df)):
+        if readout_df['charge_adc_words'][evt].ndim < 2:
+            continue
+        # modified to EXCLUDE events that have hits (including drop out events)
+        if are_hits(readout_df=readout_df, event=evt) and select_hit_events:
+            continue
+        for ch in np.arange(channel_range[0],channel_range[1]):
+            counts[ch].append(readout_df['charge_adc_words'][evt][ch,0:125])
+    return (counts,)
 
 
 @app.cell
@@ -477,11 +477,6 @@ def _(counts, noise_hist, np, plt):
     baselines, rms= noise_hist(counts, channels=np.arange(0,30), range=100, num_bins=100, subplot=6)
     plt.show()
     return baselines, rms
-
-
-@app.cell
-def _():
-    return
 
 
 @app.cell

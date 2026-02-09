@@ -1,12 +1,14 @@
 import marimo
 
-__generated_with = "0.14.17"
+__generated_with = "0.19.6"
 app = marimo.App(width="full")
 
 
 @app.cell
 def _(mo):
-    mo.md(r"""## November 2025 Integration Tests: Charge Events""")
+    mo.md(r"""
+    ## Charge Events
+    """)
     return
 
 
@@ -24,6 +26,7 @@ def _():
     from prettytable import PrettyTable
     from scipy.signal import find_peaks
     from scipy.optimize import curve_fit
+    from collections import defaultdict
     colors = sns.color_palette('colorblind')
 
 
@@ -36,11 +39,11 @@ def _():
     # or you could end up using the wrong code.
 
     # The root directory for the utility code is up 2 directories from the notebook
-    abs_repo_path = os.path.abspath('../../')
+    abs_repo_path = os.path.abspath('/home/pgrams/tpc_data/software/PGramsRawData/')
     # Insert the path to the front of sys.path if it is not already there
     if not abs_repo_path in sys.path:
         sys.path.insert(0, abs_repo_path)
-    return curve_fit, find_peaks, mo, np, pd, plt
+    return curve_fit, defaultdict, find_peaks, mo, np, pd, plt
 
 
 @app.cell
@@ -246,36 +249,32 @@ def _(curve_fit, decoder_bindings, find_peaks, np, pd, plt, readout_df):
 
 @app.cell
 def _(mo):
-    mo.md(r"""## Load raw binary data""")
+    mo.md(r"""
+    ## Load raw binary data
+    """)
     return
 
 
 @app.cell
 def _(get_raw_data, np):
-
+    # /NAS/ColumbiaIntegration/
     num_files = 1
-    run_number = '725'
-    # run_number = '458' # ADC baselines
+    run_number = '819'
 
     files = []
     for i in np.arange(num_files):
-        # files.append(f"/home/pgrams/data/nov2025_integration_data/readout_data/pGRAMS_bin_{run_number}_{i}.dat")
-        files.append(f"/home/pgrams/data/jan13_integration/readout_data/pGRAMS_bin_{run_number}_{i}.dat")
+        files.append(f"/NAS/ColumbiaIntegration/readout_data/pGRAMS_bin_{run_number}_{i}.dat")
 
     use_charge_roi = False
     readout_df = get_raw_data.get_event_data(files=files, light_slot=16, use_charge_roi=use_charge_roi, channel_threshold=[2055]*192)
     return (readout_df,)
 
 
-@app.cell
-def _(readout_df):
-    readout_df.tail(10)
-    return
-
-
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""## Preview Events""")
+    mo.md(r"""
+    ## Preview Events and Hits
+    """)
     return
 
 
@@ -295,7 +294,8 @@ def _(np, plt):
         """
         using_charge_roi = len(event_df['charge_adc_idx']) > 0
 
-        baseline_subtract = 2048
+        # baseline_subtract = 2048
+        baseline_subtract = 0
         # fig_height = 18 if (ch_up - ch_down) > 15 else 12
         # if ch_down == ch_up or overlay:
         #     baseline_subtract = 0
@@ -312,6 +312,7 @@ def _(np, plt):
             plt.plot(xaxis, qch.astype(int) - baseline_subtract + baseline_shift, label=f'Channel {channels[i]}')
 
         plt.xlim(-timesize / 2, timesize)
+        plt.ylim(range[0], range[1])
         plt.xticks(np.arange(-int(timesize / 10) * 10, int((timesize * 2) / 10) * 10, 50))
         plt.title("Event " + str(event_df['event_index']))
         plt.xlabel("[$\\mu$s]")
@@ -323,23 +324,45 @@ def _(np, plt):
 
 
 @app.cell
-def _(are_hits, find_hits, plot_charge_waveforms, plt, readout_df):
+def _(
+    are_hits,
+    defaultdict,
+    find_hits,
+    plot_charge_waveforms,
+    plt,
+    readout_df,
+):
     """
     Plotting of both the charge and light signals.
     """
     light_channel = 0
     channel_range = [0,30]
     select_hit_events = True
+    bypass = False # bypass hitfinding and look at waveforms
+    counter = 0
 
-    for event in range(0,4999):
+    peaks = defaultdict(list)
+    peak_times = defaultdict(list)
 
-        if are_hits(readout_df=readout_df, event=event):
+    for event in range(0,len(readout_df)):
+
+        if are_hits(readout_df=readout_df, event=event) or bypass:
             # modified to EXCLUDE events that have hits (including baseline drop out)
             # if are_hits(readout_df=readout_df, event=event) and select_hit_events:
-            hit_channels = find_hits(readout_df, event, height=10, prom=2)
-            if len(hit_channels)>0:
+            hit_channels = find_hits(readout_df, event, height=5, prom=7)
+            if len(hit_channels)>0 or bypass:
                 _fig, ax = plt.subplots(figsize=(16,4))
-                plot_charge_waveforms(event_df=readout_df.iloc[event], channels=hit_channels.astype(int), timesize=255, overlay=True, range=[1800, 2100], create_fig=False, show_legend=True)
+                plot_charge_waveforms(event_df=readout_df.iloc[event], channels=hit_channels.astype(int), timesize=255, overlay=True, range=[2040, 2080], create_fig=False, show_legend=True)
+                # plot_charge_waveforms(event_df=readout_df.iloc[event], channels=np.arange(channel_range[0], channel_range[1]), timesize=255, overlay=True, range=[1800, 2100], create_fig=False, show_legend=True)
+
+                # extract peak time of waveforms
+                # for ch in hit_channels:
+                #     wf = readout_df.iloc[event]['charge_adc_words'][ch]
+                #     peak = np.max(wf)
+                #     peak_time = np.argmax(wf)
+
+                #     peaks[ch].append(peak)
+                #     peak_times[ch].append(peak_time)
 
 
                 plt.xlabel("[$\\mu$s]")
@@ -348,15 +371,142 @@ def _(are_hits, find_hits, plot_charge_waveforms, plt, readout_df):
                 plt.xlim(-130,260)
                 plt.minorticks_on()
                 plt.show()
+                counter+=1
         else:
             continue
     return
 
 
 @app.cell
+def _(defaultdict, find_peaks, np):
+    def charge_stats(readout_df, channels, filter):
+        # stats[channel_id]['metric_name'] = [list_of_values]
+        stats = {ch: defaultdict(list) for ch in channels}
+
+        for event in range(len(readout_df)):
+            # Get the dictionary of waveforms for this event
+            all_waveforms = readout_df.iloc[event].get('charge_adc_words', {})
+
+            for ch in channels:
+                wf = all_waveforms[ch]
+
+                if filter:
+                    peaks_found, _ = find_peaks(wf, height=5, prominence=7)
+                    if len(peaks_found) == 0:
+                        continue
+
+                # peak amplitude and position
+                peak_val = np.max(wf)
+                peak_pos = np.argmax(wf)
+
+                # rise time calculation 
+                rise_time = 0
+                if peak_val > 0:
+                    threshold = 0.2 * peak_val # time from 10% height to peak position
+                    # slice waveform up to the peak to look for the start
+                    pre_peak_wf = wf[:peak_pos]
+                    if len(pre_peak_wf) > 0:
+                        # np.argmax on a boolean array returns the index of the first True
+                        start_pos = np.argmax(pre_peak_wf > threshold)
+                        rise_time = peak_pos - start_pos
+
+                # Append data
+                stats[ch]['peaks'].append(peak_val)
+                stats[ch]['times'].append(peak_pos)
+                stats[ch]['rise'].append(rise_time * 0.5)
+
+        return stats
+    return (charge_stats,)
+
+
+@app.cell
+def _(charge_stats, np, plt, readout_df):
+    stats = charge_stats(readout_df, [4,5,10,13,20,21,26,27], True)
+
+    channels = sorted(list(stats.keys()))
+
+    _fig, _axes = plt.subplots(nrows=2, ncols=4, figsize=(16, 6), sharey=False)
+    ax_flat = _axes.flatten()
+
+    _fig.suptitle("Charge Waveform Peak Amplitudes", fontsize=20)
+
+    _plotrange = [2040, 2070]
+
+    for _i, _ch in enumerate(channels):
+        _ax = ax_flat[_i]
+
+        _binning = np.linspace(_plotrange[0], _plotrange[1], 32)
+
+        _ax.hist(stats[_ch]['peaks'], bins=_binning,color='blue', alpha=0.7)
+        _ax.set_title(f"Channel {_ch}")
+        _ax.set_xlabel("Amplitude (ADC Counts)")
+        _ax.grid(True, alpha=0.3)
+        _ax.semilogy()
+        _ax.axvline(x=2048, color='r', linestyle='--', lw=1, alpha=0.7, label='2048 ADC')
+        _ax.set_xlim(_plotrange[0], _plotrange[1])
+        _ax.legend()
+
+    plt.tight_layout()
+    plt.show()
+    return channels, stats
+
+
+@app.cell
+def _(channels, np, plt, stats):
+    _fig, _axes = plt.subplots(nrows=2, ncols=4, figsize=(16, 6), sharey=False)
+    _ax_flat = _axes.flatten()
+
+    _fig.suptitle("Peak Positions in Time", fontsize=16)
+
+    _plotrange = [0, 800]
+
+    for _i, _ch in enumerate(channels):
+        _ax = _ax_flat[_i]
+
+        _binning = np.linspace(_plotrange[0], _plotrange[1], 35)
+
+        _ax.hist(stats[_ch]['times'], bins=_binning, color='tab:orange', alpha=0.7)
+        _ax.set_title(f"Channel {_ch}")
+        _ax.set_xlabel("Time (ticks)")
+        _ax.grid(True, alpha=0.3)
+        _ax.semilogy()
+        _ax.axvline(x=255, color='r', linestyle='--', lw=1, alpha=0.7, label='Trigger Time')
+        _ax.set_xlim(_plotrange[0], _plotrange[1])
+        _ax.legend()
+    plt.tight_layout()
+    plt.show()
+    return
+
+
+@app.cell
+def _(channels, np, plt, stats):
+    _fig, _axes = plt.subplots(nrows=2, ncols=4, figsize=(16, 6), sharey=False)
+    _ax_flat = _axes.flatten()
+
+    _fig.suptitle("Charge Waveform Rise Times", fontsize=16)
+
+    _plotrange = [0, 100]
+
+    for _i, _ch in enumerate(channels):
+        _ax = _ax_flat[_i]
+
+        _binning = np.linspace(_plotrange[0], _plotrange[1], 35)
+
+        _ax.hist(stats[_ch]['rise'], bins=_binning, color='tab:green', alpha=0.7)
+        _ax.set_title(f"Channel {_ch}")
+        _ax.set_xlabel("Rise Time (ticks)")
+        _ax.grid(True, alpha=0.3)
+        _ax.semilogy()
+        _ax.set_xlim(_plotrange[0], _plotrange[1])
+
+    plt.tight_layout()
+    plt.show()
+    return
+
+
+@app.cell
 def _():
     neu_channels = ["B13", "A14", "B12", "A13", "B11", "A12", "B10", "A11", "B9", "A10", "B8", "A9", "B7", "A8", "B6", "A7", "B5", "A6", "B4", "A5", "B3", "A4", "B2", "A3", "B1", "A2", "B0", "A1", "GND", "A0"]
-
     return
 
 
@@ -366,7 +516,7 @@ def _(readout_df):
     y = [26, 24, 22, 20, 18, 16, 14, 12, 10, 8, 6, 4, 2, 0]
 
 
-    event_idx = 4933
+    event_idx = 368
     event_data= readout_df.iloc[event_idx]
     data = event_data['charge_adc_words']
     return data, event_idx, x, y
@@ -394,6 +544,7 @@ def _(data, event_idx, np, plt, x, y):
     ax1.set_ylabel('Drift (µs)')
     ax1.set_xlabel('X Channel')
     ax1.set_xticks(ticks=np.arange(x_channels.shape[0]))
+    # ax1.set_ylim(0,70)
 
     _im = ax2.imshow(
         y_channels.T,
@@ -407,11 +558,11 @@ def _(data, event_idx, np, plt, x, y):
     ax2.set_ylabel('Drift (µs)')
     ax2.set_xlabel('Y Channel')
     ax2.set_xlim(0,15)
+    # ax2.set_ylim(0,70)
     ax2.set_xticks(ticks=np.arange(y_channels.shape[0]+1))
 
     plt.tight_layout()
     plt.show()
-
     return x_channels, y_channels
 
 
@@ -526,7 +677,6 @@ def _(event_idx, go, np, x_channels, y_channels):
         yrange=yrange,
         drift_range=drift_range
     )
-
     return
 
 

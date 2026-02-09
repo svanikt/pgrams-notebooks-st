@@ -1,12 +1,14 @@
 import marimo
 
-__generated_with = "0.14.17"
+__generated_with = "0.19.6"
 app = marimo.App(width="full")
 
 
 @app.cell
 def _(mo):
-    mo.md(r"""## Integration Tests: Light Trigger""")
+    mo.md(r"""
+    ## Integration Tests: Light Trigger
+    """)
     return
 
 
@@ -29,7 +31,7 @@ def _():
     # or you could end up using the wrong code.
 
     # The root directory for the utility code is up 2 directories from the notebook
-    abs_repo_path = os.path.abspath('../../')
+    abs_repo_path = os.path.abspath('/home/pgrams/tpc_data/software/PGramsRawData')
     # Insert the path to the front of sys.path if it is not already there
     if not abs_repo_path in sys.path:
         sys.path.insert(0, abs_repo_path)
@@ -48,7 +50,9 @@ def _():
 
 @app.cell
 def _(mo):
-    mo.md(r"""## Load raw binary data""")
+    mo.md(r"""
+    ## Load raw binary data
+    """)
     return
 
 
@@ -72,24 +76,24 @@ def _():
 @app.cell
 def _(get_raw_data, np):
     # /NAS/ColumbiaIntegration/
-    num_files = 2
-    run_numbers = ['503','504','505']
-
+    num_files = 3
+    # run_numbers = ['503','504','505']
+    run_numbers = ['819']
     files = []
     for i in np.arange(len(run_numbers)):
         for j in np.arange(num_files):
-            files.append(f"/home/pgrams/data/nov2025_integration_data/pGRAMS_bin_{run_numbers[i]}_{j}.dat")
-
+            # files.append(f"/home/pgrams/data/nov2025_integration_data/pGRAMS_bin_{run_numbers[i]}_{j}.dat")
+            files.append(f"/NAS/ColumbiaIntegration/readout_data/pGRAMS_bin_{run_numbers[i]}_{j}.dat")
     use_charge_roi = True
-    readout_df = get_raw_data.get_event_data(files=files, light_slot=16, use_charge_roi=use_charge_roi, channel_threshold=[2055]*192)
+    readout_df = get_raw_data.get_event_data(files=files, light_slot=16, use_charge_roi=use_charge_roi, skip_beam_roi=True, channel_threshold=[2055]*192)
 
     # readout_df = readout_df.iloc[0:1049]
     return readout_df, run_numbers
 
 
 @app.cell
-def _(readout_df):
-    readout_df.tail(10)
+def _():
+    # readout_df.tail(10)
     return
 
 
@@ -101,7 +105,9 @@ def _(readout_df):
 
 @app.cell
 def _(mo):
-    mo.md(r"""## Perform basic data quality checks""")
+    mo.md(r"""
+    ## Perform basic data quality checks
+    """)
     return
 
 
@@ -121,6 +127,8 @@ def _():
 
 @app.cell
 def _():
+
+
     # # for event in range(len(readout_df)):
     # for event in range(653,657):
     #     if len(readout_df['charge_adc_idx'][event]) > 0:
@@ -131,13 +139,15 @@ def _():
 
 @app.cell
 def _():
-    # plot.plot_light_waveforms(readout_df=readout_df, evt_range=(4640,4700), ylim=(1900,4096), show_diff=False, show_legend=False, show_events=False)
+
+
+    # plot.plot_light_waveforms(readout_df=readout_df, evt_range=(600,601), ylim=(1900,4096), show_diff=False, show_legend=False, show_events=False)
     return
 
 
 @app.cell
-def _():
-    # plot.plot_light_waveforms(readout_df=readout_df, evt_range=(4643,4644), ylim=(1900,4096), show_diff=False, show_legend=False, show_events=False)
+def _(plot, readout_df):
+    plot.plot_light_waveforms(readout_df=readout_df, evt_range=(1000,1002), ylim=(1900,4096), show_diff=False, show_legend=True, show_events=False)
     return
 
 
@@ -175,7 +185,9 @@ def _():
 
 @app.cell
 def _(mo):
-    mo.md(r"""## Plot Single-Channel Amplitude Distributions""")
+    mo.md(r"""
+    ## Plot Single-Channel Amplitude Distributions
+    """)
     return
 
 
@@ -236,17 +248,23 @@ def _(colors, plt, readout_df, run_numbers):
         # if len(mins) > 0:
             # ax.hist(mins, bins=binning, range=range, histtype='step', color='darkblue', label='ADC min')
         if len(maxs) > 0:
-            ax.hist(maxs, bins=binning, range=range, histtype='step', color=colors[2])
+            n, bins, patches = ax.hist(maxs, bins=binning, range=range, histtype='step', color=colors[2])
+
+            total_counts = int(n.sum())
+            ax.text(0.95, 0.95, f'N={total_counts}', transform=ax.transAxes, 
+                    fontsize=7, verticalalignment='top', horizontalalignment='right',
+                    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 
         ax.axvline(2048+disc0, ls='--', lw='0.7', alpha=0.7, color='blue')
         ax.axvline(2048+disc1, ls='--', lw='0.7', alpha=0.7, color='red')
         ax.axvline(2048+trig, ls='--', lw='0.7', alpha=0.7, color='black')
 
 
+
         sipm_type = 'VUV'
         if sipm_channels[idx]%2==0:
             sipm_type = 'VIS'
-        ax.set_title(f"Shaper Channel {ch} ({sipm_type})", fontsize=9)
+        ax.set_title(f"Shaper Ch. {ch} ({sipm_type})", fontsize=9)
         ax.set_yscale('log')
         ax.grid(alpha=0.3, linestyle='--', linewidth=0.5)
 
@@ -268,10 +286,8 @@ def _(colors, plt, readout_df, run_numbers):
     fig.legend(handles=[disc0_label, disc1_label, trig_label], loc='lower center', ncols=3, frameon=False, bbox_to_anchor=(0.5, 0.005))
 
     plt.tight_layout(rect=[0.05, 0.05, 1, 0.97])
-
-    plt.tight_layout(rect=[0.05, 0.05, 1, 0.97])
     plt.show()
-    return binning, ch_maxs, range, runs
+    return binning, ch_maxs, range, runs, shaper_channels, sipm_channels
 
 
 @app.cell
@@ -292,7 +308,9 @@ def _(binning, ch_maxs, colors, plt, range):
 
 @app.cell
 def _(mo):
-    mo.md(r"""## Measure Light Trigger Rate""")
+    mo.md(r"""
+    ## Measure Trigger Rate
+    """)
     return
 
 
@@ -367,7 +385,7 @@ def _(
         plt.title(f'Light Trigger Rate Fit for Runs {runs} ({len(readout_df)} events)')
     else:
         plt.title(f'Light Trigger Rate Fit for Run {run_numbers[0]} ({len(readout_df)} events)')
-    plt.xlim(0, 0.01)
+    # plt.xlim(0, 0.01)
 
     plt.legend()
     plt.grid()
@@ -381,135 +399,159 @@ def _(
 
 
 @app.cell
-def _():
-    # evt_map = 654
-    # if len(readout_df['charge_adc_idx'].iloc[evt_map]) > 0: 
-    #     channel_words = qutils.full_charge_waveform(event_df=readout_df.iloc[evt_map], num_channel=30, timesize=255)
-    # else:
-    #     channel_words = readout_df['charge_adc_words'][evt_map][:30,:]
-
-    # bottom,top = qutils.remap_channels(channel_arr=channel_words, detector='ugrams')
-
-    # print("Bottom Channels")
-    # plot.plot_charge_channels(channel_adc=bottom, event=evt_map, num_channel=len(bottom), timesize=255, charge_range=(2000,2100))
-    # print("Top Channels")
-    # plot.plot_charge_channels(channel_adc=top, event=evt_map, num_channel=len(top), timesize=255, charge_range=(2000,2100))
+def _(np, readout_df):
+    trigger_frames = np.asarray(readout_df['trigger_frame_number'])
+        # light_frames = np.asarray(readout_df['light_frame_number'].iloc[0])
+        # light_channels = np.asarray(readout_df['light_channel'].iloc[0])
+        # light_adc = np.asarray(readout_df['light_adc_words'].iloc[0])
+    trigger_frames[2].size
     return
 
 
 @app.cell
-def _():
-    # plot.ugrams_event_display(xchannels=bottom, ychannels=top, charge_thresh=2056)
-    return
+def _(np, plt, readout_df):
+    # extract trigger pulse data and channels with filtering
+    trigger_pulses = []
+    trigger_channels_list = []
 
+    for _ev in np.arange(len(readout_df)):
+        _trig_frames = np.unique(readout_df['trigger_frame_number'][_ev])
+        _light_frames = np.array(readout_df['light_frame_number'][_ev])
+        _light_channels = np.array(readout_df['light_channel'][_ev])
+        _light_adc = np.array(readout_df['light_adc_words'][_ev])
 
-@app.cell
-def _():
-    # plt.figure(figsize=(12,5))
-    # plt.hist(readout_df['charge_adc_words'][654][0,:], range=(1024,4096), bins=16)
-    # plt.show()
-    return
+        for _tf in _trig_frames:
+            _matches = np.where(_light_frames == _tf)[0]
+            for _idx in _matches:
+                _ch = int(_light_channels[_idx])
+                if _ch <= 36:
+                    # extract the pulse waveform
+                    if _light_adc.ndim > 1:
+                        _pulse = _light_adc[_idx]
+                    else:
+                        _pulse = _light_adc
 
+                    # Filter: only keep pulses with length 256 and peak <= 4097
+                    if len(_pulse) == 256 and np.max(_pulse) <= 4097:
+                        trigger_pulses.append(_pulse)
+                        trigger_channels_list.append(_ch)
 
-@app.cell
-def _():
-    # def rolling_avg(adc, avg_window):
-    #     cumsum_vec = np.cumsum(np.insert(adc, 0, 0)) 
-    #     return (cumsum_vec[avg_window:] - cumsum_vec[:-avg_window]) / avg_window
+    # Convert to arrays (now homogeneous since all are length 256)
+    trigger_pulses = np.array(trigger_pulses)
+    trigger_channels_list = np.array(trigger_channels_list)
 
-    # def absrs(adc, n):
-    #     yn = []
-    #     yn1 = 0
-    #     for word in adc:
-    #         yn.append((1./n)*word + (1. - (1./n))*yn1)
-    #         yn1 = yn[-1]
-    #     return np.asarray(yn)
-    return
+    # Calculate peak amplitudes
+    trigger_peak_amplitudes = np.max(trigger_pulses, axis=1) if len(trigger_pulses) > 0 else np.array([])
 
+    # Plot distributions
+    plt.figure(figsize=(8,5))
 
-@app.cell
-def _():
-    # ch_wf = readout_df['charge_adc_words'][79][24,:]
+    # peak amplitude distribution
+    plt.hist(trigger_peak_amplitudes, bins=50, edgecolor='black', alpha=0.7)
+    plt.xlabel('Peak Amplitude (ADC)', fontsize=12)
+    plt.ylabel('Count', fontsize=12)
+    plt.title(f'Trigger Pulse Amplitude Distribution', 
+                   fontsize=14, fontweight='bold')
+    plt.grid(True, alpha=0.3)
+    plt.legend()
 
-    # plt.figure(figsize=(15,5))
-    # plt.plot(ch_wf, label="Waveform")
-    # n = 1./20.
-    # abst = absrs(adc=ch_wf,n=10)
-    # plt.plot(abst[8:], label="Running Sum (n=10)")
-    # # plt.plot(0.998*(n*ch_wf[1:] + (1-n) * ch_wf[:-1]))
-    # ra = rolling_avg(adc=ch_wf, avg_window=10)
-    # plt.plot(ra, label="Rolling Avg (n=10)")
-    # # readout_df['charge_channel'][79]
-    # plt.ylim(2034,2065)
-    # plt.legend()
-    # plt.show()
-    return
-
-
-@app.cell
-def _():
-    # all_rois_min = []
-    # all_rois_max = []
-    # all_roi_ch = []
-    # for i, (allch, lw) in enumerate(zip(readout_df["light_channel"], readout_df["light_adc_words"])):
-    #     if len(allch) < 1 or len(lw) < 1:
-    #         continue
-    #     for rch, rmin, rmax in zip(allch, lw.min(axis=1), lw.max(axis=1)):
-    #         all_rois_min.append(rmin)
-    #         all_rois_max.append(rmax)
-    #         all_roi_ch.append(rch)
-    #         if rmax < 2500:
-    #             print(i, "/", rch)
-    return
-
-
-@app.cell
-def _():
-    # bins = 200
-    # xrange = (2000, 2800)
-
-    # plt.figure(figsize=(12,5))
-    # plt.hist(all_rois_min, bins=bins, range=xrange)
-    # plt.hist(all_rois_max, bins=bins, range=xrange)
-    # plt.xlabel("ADC")
-    # plt.yscale('log')
-    # plt.grid()
-    # plt.show()
-    return
-
-
-@app.cell
-def _():
-    # plt.figure(figsize=(12,5))
-    # plt.hist2d(all_rois_min, all_roi_ch, bins=[bins, 15], range=[xrange, [0,15]], cmin=1)
-    # plt.colorbar()
-    # plt.hist2d(all_rois_max, all_roi_ch, bins=[bins, 15], range=[xrange, [0,15]], cmin=1)
-    # plt.grid()
-    # plt.xlabel("ADC")
-    # plt.ylabel("Channel")
-    # plt.show()
-    return
-
-
-@app.cell
-def _(readout_df):
-    readout_df[50:100]
-    return
-
-
-@app.cell
-def _(readout_df):
-    len_lch_list = []
-    for lch in readout_df["light_channel"]:
-        len_lch_list.append(len(lch))
-    return (len_lch_list,)
-
-
-@app.cell
-def _(len_lch_list, plt):
-    plt.hist(len_lch_list[1:], bins=10, range=[0,10])
-    plt.grid()
+    plt.tight_layout()
     plt.show()
+
+    # statistics
+    print(f"Total trigger pulses: {len(trigger_pulses)}")
+    print(f"Peak amplitude range: {trigger_peak_amplitudes.min():.1f} - {trigger_peak_amplitudes.max():.1f} ADC" if len(trigger_peak_amplitudes) > 0 else "No pulses")
+    print(f"Mean peak amplitude: {trigger_peak_amplitudes.mean():.1f} ± {trigger_peak_amplitudes.std():.1f} ADC" if len(trigger_peak_amplitudes) > 0 else "No pulses")
+    print(f"Median peak amplitude: {np.median(trigger_peak_amplitudes):.1f} ADC" if len(trigger_peak_amplitudes) > 0 else "No pulses")
+    return (trigger_channels_list,)
+
+
+@app.cell
+def _(
+    LogNorm,
+    np,
+    plt,
+    readout_df,
+    shaper_channels,
+    sipm_channels,
+    trigger_channels_list,
+):
+    # Count filtered triggers per channel
+    filtered_trigger_counts = {}
+    for _ch in trigger_channels_list:
+        filtered_trigger_counts[_ch] = filtered_trigger_counts.get(_ch, 0) + 1
+
+    # Build heatmap
+    _heat = np.zeros((6, 6))
+    for _i, _ch in enumerate(shaper_channels):
+        _heat[_i//6, _i%6] = filtered_trigger_counts.get(_ch, 0)
+
+    # Plot
+    _fig, _ax = plt.subplots(figsize=(10, 10))
+
+    if _heat.max() > 0:
+        _im = _ax.imshow(_heat, cmap='hot', norm=LogNorm(vmin=1, vmax=_heat.max()))
+    else:
+        _im = _ax.imshow(_heat, cmap='hot')
+
+    # Add colorbar
+    _cbar = plt.colorbar(_im, ax=_ax, fraction=0.046, pad=0.04)
+    _cbar.set_label('Number of Triggers', rotation=270, labelpad=15)
+
+    # Annotations with larger, bolder texte
+    for _i, _ch in enumerate(shaper_channels):
+        _r, _c = _i//6, _i%6
+        _val = int(_heat[_r, _c])
+        _color = 'white' if _heat[_r, _c] < _heat.max()/2 else 'black'
+
+        # Channel number and count
+        _ax.text(_c, _r - 0.2, f'Ch{_ch}', 
+                 ha='center', va='center', color=_color,
+                 fontsize=12, fontweight='bold')
+
+        _ax.text(_c, _r + 0.1, f'{_val}',
+                 ha='center', va='center', color=_color,
+                 fontsize=11, fontweight='bold')
+
+        # SiPM type
+        _sipm_type = 'VUV' if sipm_channels[_i] % 2 == 1 else 'VIS'
+        _ax.text(_c, _r + 0.35, f'({_sipm_type})',
+                 ha='center', va='center', color=_color,
+                 fontsize=10, fontweight='bold')
+
+    # Grid
+    for _i in np.arange(7):
+        _ax.axhline(_i-0.5, color='gray', lw=0.5, alpha=0.5)
+        _ax.axvline(_i-0.5, color='gray', lw=0.5, alpha=0.5)
+
+    # Clean up axes
+    _ax.set_xticks([])
+    _ax.set_yticks([])
+    _ax.set_xlim(-0.5, 5.5)
+    _ax.set_ylim(5.5, -0.5)
+
+    # Title
+    _total_filtered = sum(filtered_trigger_counts.values())
+    _ax.set_title(f'Trigger Heatmap {len(readout_df)} events)', 
+                  fontsize=16, fontweight='bold')
+
+    plt.tight_layout()
+    plt.show()
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
     return
 
 

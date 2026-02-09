@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.19.6"
+__generated_with = "0.19.9"
 app = marimo.App(width="full")
 
 
@@ -13,7 +13,7 @@ def _():
     import matplotlib.pyplot as plt
     from matplotlib.colors import LogNorm
     from mpl_toolkits.axes_grid1 import make_axes_locatable
-    from IPython import display
+    # from IPython import display
     import numpy as np
     import pandas as pd
     from scipy.optimize import curve_fit
@@ -28,12 +28,12 @@ def _():
     # or you could end up using the wrong code.
 
     # The root directory for the utility code is up 2 directories from the notebook
-    abs_repo_path = os.path.abspath('../../')
+    abs_repo_path = os.path.abspath('/home/pgrams/tpc_data/software/PGramsRawData')
     # Insert the path to the front of sys.path if it is not already there
     if not abs_repo_path in sys.path:
         sys.path.insert(0, abs_repo_path)
 
-    plt.style.use('/home/svanik/latex-cm.mplstyle')
+    # plt.style.use('/home/svanik/latex-cm.mplstyle')
     return (
         PrettyTable,
         colors,
@@ -56,7 +56,8 @@ def _():
     import raw_data_ana.plotting as plot
     import raw_data_ana.charge_utils as qutils
     import raw_data_ana.light_utils as lutils
-    return (get_raw_data,)
+
+    return get_raw_data, plot
 
 
 @app.cell
@@ -222,18 +223,19 @@ def _(curve_fit, decoder_bindings, find_peaks, np, pd, plt, readout_df):
         """
         fem_number = np.arange(len(readout_df['slot_number'][event]))[readout_df['slot_number'][event] == 16]
         min_light_frame = np.min(readout_df['light_frame_number'][event]).astype(float)
-        light_trigger_sample = get_light_trigger_sample(trig_frame=readout_df['trigger_frame_number'][event][fem_number].astype(float), trig_sample=readout_df['trigger_sample'][_event][fem_number].astype(float), light_frames=readout_df['light_frame_number'][_event].astype(float), light_samples=readout_df['light_readout_sample'][_event].astype(float))
-        full_waveform = decoder_bindings.get_full_light_waveform(channel, readout_df['light_channel'][event].astype(int), min_light_frame, readout_df['light_readout_sample'][_event].astype(float), readout_df['light_frame_number'][_event].astype(float), readout_df['light_adc_words'][_event], 255)
+        light_trigger_sample = get_light_trigger_sample(trig_frame=readout_df['trigger_frame_number'][event][fem_number].astype(float), trig_sample=readout_df['trigger_sample'][event][fem_number].astype(float), light_frames=readout_df['light_frame_number'][event].astype(float), light_samples=readout_df['light_readout_sample'][event].astype(float))
+        full_waveform = decoder_bindings.get_full_light_waveform(channel, readout_df['light_channel'][event].astype(int), min_light_frame, readout_df['light_readout_sample'][event].astype(float), readout_df['light_frame_number'][event].astype(float), readout_df['light_adc_words'][event], 255)
         full_axis = decoder_bindings.get_full_light_axis(readout_df['trigger_frame_number'][event][fem_number].astype(float), light_trigger_sample, min_light_frame, 255, True)
         return (full_axis, full_waveform)
-    return gaussian, gaussian_exp, plot_charge_waveforms
+
+    return gaussian, gaussian_exp, get_light_trigger_sample
 
 
 @app.cell
 def _(get_raw_data, np):
     # /NAS/ColumbiaIntegration/
     num_files = 1
-    run_number = '796'
+    run_number = '807'
 
     files = []
     for _i in np.arange(num_files):
@@ -247,15 +249,6 @@ def _(get_raw_data, np):
 @app.cell
 def _(readout_df):
     len(readout_df)
-    return
-
-
-@app.cell
-def _(plt, readout_df):
-    plt.plot(readout_df['charge_adc_words'][79][0,240:310], marker='.')
-    plt.xlabel('Charge Ticks [2MHz]')
-    plt.ylabel('Charge ADC')
-    plt.title('Run 269 Event 79 Channel 0')
     return
 
 
@@ -310,49 +303,38 @@ def _(PrettyTable, np, readout_df):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## Preview Events
+    ## Preview Light Events
     """)
     return
 
 
 @app.cell
-def _(find_peaks, np):
-    def are_hits_1(readout_df, event):
-        """
-        Use for event selection. Check if there are any large-ish charge hits in the event in any of the 32 channels.
-        """
-        charge_channels = readout_df['charge_adc_words'] if event is None else readout_df['charge_adc_words'][event]
-        for i in range(0, 32):
-            if len(find_peaks(charge_channels[i, :], height=10, prominence=8)[0]) > 0 or len(find_peaks(-charge_channels[i, :], height=10, prominence=8)[0]) > 0:
-                return True
-            if np.any(charge_channels[i, :] < 100):
-                return True
-        return False
-    return (are_hits_1,)
+def _(plot, readout_df):
+    plot.plot_light_waveforms(readout_df, [0,3], ylim=(2000,2080),show_diff=True, show_legend=False, show_events=True)
+    return
 
 
 @app.cell
-def _(are_hits_1, plot_charge_waveforms, plt, readout_df):
-    """
-    Plotting of both the charge and light signals.
-    """
-    light_channel = 0
-    _channel_range = [12, 12]
-    _select_hit_events = True
-    for _event in range(10, 11):
-        if readout_df['charge_adc_words'][_event].ndim < 2:
-            continue
-        if not are_hits_1(readout_df=readout_df, event=_event) and _select_hit_events:
-            continue
-        _fig, _ax1 = plt.subplots(figsize=(16, 6))
-        plot_charge_waveforms(readout_df=readout_df, event=_event, channel_range=_channel_range, timesize=255, overlay=True, range=[1930, 2060], create_fig=False, show_legend=True)
-        plt.xlabel('[$\\mu$s]')
-        plt.axvline(-127.5, color='red', linestyle='--')
-        plt.axvline(-77.5, color='red', linestyle='--', label='Baseline Region')
-        plt.legend(loc='lower right')
-        plt.xlim(-128, 255.5)
-        plt.minorticks_on()
-        plt.show()
+def _(channel, decoder_bindings, get_light_trigger_sample, np, readout_df):
+    fem_number = 16
+    timesize = 255
+    min_light_frame = np.min(readout_df['light_frame_number'].astype(float))
+
+    light_trigger_sample = get_light_trigger_sample(trig_frame=readout_df['trigger_frame_number'][fem_number].astype(float),
+                                                    trig_sample=readout_df['trigger_sample'][fem_number].astype(float),
+                                                    light_frames=readout_df['light_frame_number'].astype(float),
+                                                    light_samples=readout_df['light_readout_sample'].astype(float))
+
+
+    waveform = decoder_bindings.get_full_light_waveform(channel, readout_df['light_channel'].astype(int),
+                                                                 min_light_frame,
+                                                                 readout_df['light_readout_sample'].astype(float),
+                                                                 readout_df['light_frame_number'].astype(float),
+                                                                 readout_df['light_adc_words'], timesize)
+
+    axis = decoder_bindings.get_full_light_axis(readout_df['trigger_frame_number'][fem_number].astype(float),
+                                                         light_trigger_sample,
+                                                         min_light_frame, timesize, True)
     return
 
 
@@ -400,7 +382,7 @@ def _(colors, curve_fit, file_list, gaussian, np, pd, plt, savedir):
                 _, axs = plt.subplots(rows, subplot, figsize=(20, 2*rows))
             else: 
                 _, axs = plt.subplots(rows, len(channels), figsize=(20, 2*len(channels)))
-        
+
         for i, ch in enumerate(channels):
             if subplot:
                 row = i//subplot # row index
@@ -409,10 +391,10 @@ def _(colors, curve_fit, file_list, gaussian, np, pd, plt, savedir):
             else:
                 plt.figure(figsize=(4, 4))
                 ax = plt.gca()
-        
+
             all_counts = np.concatenate(counts[ch])
             # print(all_counts)
-        
+
             # compute mean and std based on raw data
             mean = np.mean(all_counts)
             std = np.std(all_counts)
@@ -424,14 +406,14 @@ def _(colors, curve_fit, file_list, gaussian, np, pd, plt, savedir):
             # fit gaussian to midpoints, initial guess based on mean and std of counts
             params, _ = curve_fit(gaussian, midpoints, hist, [np.mean(all_counts), np.std(all_counts)])
             mean_fit, std_fit = params
-        
+
             # trust the fitted result more, so we return this in the dictionary
             baselines[ch] = (mean_fit)
             rms[ch] = std_fit
 
             # plot histogram
             ax.hist(all_counts, bins=bins, histtype='step', color=colors[0], density=True)
-        
+
             # plot fitted gaussian
             x = np.linspace(min(bins), max(bins), 400)
             fit = gaussian(x, mean, std)
@@ -461,7 +443,7 @@ def _(colors, curve_fit, file_list, gaussian, np, pd, plt, savedir):
         if saveas: plt.savefig(f'{savedir}/BaselineCountsRun{file_list}.{saveas}', dpi=400, bbox_inches='tight') # save plot
 
         plt.show()
-    
+
         # tabulate and display results
         results = {
             "Ch": list(baselines.keys()),
@@ -469,8 +451,9 @@ def _(colors, curve_fit, file_list, gaussian, np, pd, plt, savedir):
             "RMS Counts": list(rms.values())
         }
         results_df = pd.DataFrame(results)
-        
+
         return baselines, rms
+
     return (noise_hist,)
 
 
@@ -490,7 +473,7 @@ def _(mo):
 
 @app.cell
 def _(are_hits_1, colors, mo, np, plt, readout_df):
-    channel = 12
+    channel = 1
     desired_length = 763
     sample_interval_us = 0.5
     waveforms = []
@@ -527,7 +510,7 @@ def _(are_hits_1, colors, mo, np, plt, readout_df):
     plt.legend(loc='lower right')
     plt.grid(True, which='both', linestyle='--', alpha=0.5)
     plt.show()
-    return avg_waveform, baseline, rms_1, waveforms_arr, x_axis
+    return avg_waveform, baseline, channel, rms_1, waveforms_arr, x_axis
 
 
 @app.cell
@@ -689,6 +672,7 @@ def _(np):
         R[t_shifted < 0] = 0
 
         return R
+
     return (ub_response,)
 
 
@@ -791,6 +775,7 @@ def _(np):
         response[t_shifted < 0] = 0
 
         return response
+
     return (impulse_response,)
 
 
@@ -882,6 +867,7 @@ def _(colors, curve_fit, make_axes_locatable, np, plt, trapezoid):
         plt.show()
         markdown_table = f'\n| Metric | Data | Fit | Difference |\n|:---|:---:|:---:|:---:|\n| Peak Amplitude [ADC] | {peak_amp_data:.2f} | {peak_amp_fit:.2f} | {amp_rel_diff:+.2f}% |\n| Peak Time [µs] | {peak_time_data:.2f} | {peak_time_fit:.2f} | {time_abs_diff:+.3f} µs |\n| Integrated Area [ADC*µs] | {area_data:.2f} | {area_fit:.2f} | {area_rel_diff:+.2f}% |\n'
         return (_params, residuals, markdown_table)  # plot integration window on top of full fit
+
     return (fit_pulse,)
 
 
