@@ -28,12 +28,12 @@ def _():
     # or you could end up using the wrong code.
 
     # The root directory for the utility code is up 2 directories from the notebook
-    abs_repo_path = os.path.abspath('/home/pgrams/tpc_data/software/PGramsRawData')
+    abs_repo_path = os.path.abspath('/home/pgrams/daq_analysis/PGramsRawData')
     # Insert the path to the front of sys.path if it is not already there
     if not abs_repo_path in sys.path:
         sys.path.insert(0, abs_repo_path)
 
-    # plt.style.use('/home/svanik/latex-cm.mplstyle')
+    plt.style.use('/home/pgrams/latex-cm.mplstyle')
     return (
         PrettyTable,
         colors,
@@ -235,20 +235,20 @@ def _(curve_fit, decoder_bindings, find_peaks, np, pd, plt, readout_df):
 def _(get_raw_data, np):
     # /NAS/ColumbiaIntegration/
     num_files = 1
-    run_number = '807'
+    run_number = '139'
 
     files = []
     for _i in np.arange(num_files):
-        files.append(f"/NAS/ColumbiaIntegration/readout_data/pGRAMS_bin_{run_number}_{_i}.dat")
+        files.append(f"/nevis/riverside/data/jsen/daq_data/neu_06_2025/pGRAMS_bin_{run_number}_{_i}.dat")
 
-    use_charge_roi = False
+    use_charge_roi = True
     readout_df = get_raw_data.get_event_data(files=files, light_slot=16, use_charge_roi=use_charge_roi, channel_threshold=[2055]*192)
     return (readout_df,)
 
 
 @app.cell
 def _(readout_df):
-    len(readout_df)
+    readout_df
     return
 
 
