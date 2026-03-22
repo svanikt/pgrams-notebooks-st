@@ -86,52 +86,6 @@ def _(readout_df):
     readout_df.tail(1)
     return
 
-
-@app.cell
-def _(hf, readout_df):
-    # Reload the module to pick up any changes
-    import importlib
-    importlib.reload(hf)
-
-    # Test again
-    for _evt in range(2192, 2196):
-        _result = hf.are_hits(readout_df=readout_df, event=_evt)
-        print(f"Event {_evt}: are_hits = {_result}")
-    return
-
-
-@app.cell
-def _(np, readout_df):
-    # Check what the function is actually seeing
-    _evt = 2192
-    _charge_via_function = readout_df['charge_adc_words'][_evt]
-    _charge_direct = readout_df.iloc[_evt]['charge_adc_words']
-
-    print(f"Via indexing: shape = {_charge_via_function.shape}")
-    print(f"Via iloc: shape = {_charge_direct.shape}")
-    print(f"Are they the same? {np.array_equal(_charge_via_function, _charge_direct)}")
-    return
-
-
-@app.cell
-def _(np, readout_df):
-    # Manually replicate are_hits logic
-    _evt = 2192
-    _charge = readout_df['charge_adc_words'][_evt]
-    print(f"Shape: {_charge.shape}")
-
-    _found_jump = False
-    for _ch in range(_charge.shape[0]):
-        _max_diff = np.max(np.abs(np.diff(_charge[_ch, :])))
-        if _max_diff > 8:
-            print(f"Channel {_ch}: max diff = {_max_diff}")
-            _found_jump = True
-
-    if not _found_jump:
-        print("No jumps > 8 found")
-    return
-
-
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
