@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.19.6"
+__generated_with = "0.20.4"
 app = marimo.App(width="full")
 
 
@@ -53,6 +53,7 @@ def _():
     import raw_data_ana.plotting as plot
     import raw_data_ana.charge_utils as qutils
     import raw_data_ana.light_utils as lutils
+
     return (get_raw_data,)
 
 
@@ -244,6 +245,7 @@ def _(curve_fit, decoder_bindings, find_peaks, np, pd, plt, readout_df):
                                                           min_light_frame, 255, True)
 
         return full_axis, full_waveform
+
     return are_hits, find_hits
 
 
@@ -320,6 +322,7 @@ def _(np, plt):
         if show_legend: plt.legend(loc='best')
         # if ch_down == ch_up or overlay: plt.ylim(range)
         if create_fig: plt.show()
+
     return (plot_charge_waveforms,)
 
 
@@ -416,6 +419,7 @@ def _(defaultdict, find_peaks, np):
                 stats[ch]['rise'].append(rise_time * 0.5)
 
         return stats
+
     return (charge_stats,)
 
 
@@ -569,6 +573,7 @@ def _(data, event_idx, np, plt, x, y):
 @app.cell
 def _():
     import plotly.graph_objects as go
+
     return (go,)
 
 

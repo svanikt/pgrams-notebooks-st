@@ -70,7 +70,7 @@ def _(mo):
 @app.cell
 def _(get_raw_data, np):
     num_files = 1
-    run_number = '774'
+    run_number = '766'
 
     files = []
     for i in np.arange(num_files):
@@ -85,6 +85,7 @@ def _(get_raw_data, np):
 def _(readout_df):
     readout_df.tail(1)
     return
+
 
 @app.cell(hide_code=True)
 def _(mo):
@@ -101,7 +102,7 @@ def _(hf, plot, plt, readout_df):
     channel_range = [0,192]
     select_hit_events = True
 
-    for event in range(2192,2195):
+    for event in range(100,102):
 
         if not hf.are_hits(readout_df=readout_df, event=event):
             # modified to EXCLUDE events that have hits (including baseline drop out)
@@ -207,7 +208,7 @@ def _(colors, curve_fit, gaussian, np, pd, plt):
                 params, _ = curve_fit(gaussian, midpoints, hist, [mean, std])
                 mean_fit, std_fit = params
 
-                baselines[ch] = mean_fit
+                baselines[ch] = mean
                 rms[ch] = std
 
                 ax.hist(all_counts, bins=bins, histtype='step', color=colors[0], density=True)
@@ -345,7 +346,7 @@ def _(get_raw_data, np):
     # overlay noise to compare
     # /NAS/ColumbiaIntegration/
     num_files1 = 1
-    run_number1 = '673'
+    run_number1 = '765'
 
     files1 = []
     for _i in np.arange(num_files1):
@@ -572,6 +573,11 @@ def _(colors, noise_rms, noise_rms1, np, plt, run_number, run_number1):
     print(f"{'Channel':<10} {'Run 774':<12} {'Run 673':<12} {'Diff':<12} {'Pct Diff':<10}")
     for _idx in _sorted_idx[:10]:
         print(f"{_channels[_idx]:<10} {_rms1[_idx]:<12.4f} {_rms2[_idx]:<12.4f} {(_rms1[_idx]-_rms2[_idx]):<12.4f} {_pct_diff[_idx]:<10.2f}%")
+    return
+
+
+@app.cell
+def _():
     return
 
 
